@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tir à la Corde – Français</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap');
+
+* { box-sizing:border-box; margin:0; padding:0; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --bleu:    #2355b0;
+  --bleu-l:  #4a90d9;
+  --rouge:   #b02323;
+  --rouge-l: #d95050;
+  --vert:    #2dc653;
+  --jaune:   #f5c842;
+  --violet:  #7b2ff7;
+  --fond:    #4a7c59;
+  --fond2:   #3a6147;
+  --gris-clav: #e8f0e4;
+  --gris-btn:  #c8dcc0;
+  --blanc:   #ffffff;
+}
+
+html,body { width:100%; height:100%; overflow:hidden; font-family:'Nunito',sans-serif; }
+body { background:linear-gradient(160deg,#5a9e6e 0%,#3a6147 100%); }
+
+.screen { width:100%; height:100vh; display:none; flex-direction:column; overflow:hidden; }
+.screen.on { display:flex; }
+
+/* ========== CONFIG ========== */
+#cfg {
+  align-items:center; padding:14px 18px 18px; gap:12px; overflow-y:auto;
+  background:linear-gradient(160deg,#5a9e6e 0%,#3a6147 100%);
+}
+
+.cfg-title {
+  font-family:'Fredoka One',cursive; font-size:clamp(1.5rem,4vw,2.6rem);
+  color:#fff; text-shadow:0 3px 10px rgba(0,0,0,0.35); text-align:center; flex-shrink:0;
+}
+
+.cfg-ops {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:8px; width:100%; max-width:920px; flex-shrink:0;
+}
+
+.op-card {
+  background:rgba(255,255,255,0.93); border-radius:14px; padding:10px 8px;
+  cursor:pointer; border:3px solid transparent;
+  box-shadow:0 4px 14px rgba(0,0,0,0.15); transition:transform .15s,border-color .15s;
+}
+.op-card.sel { border-color:var(--jaune); }
+.op-card:active { transform:scale(0.97); }
+
+.op-sym { font-size:1.6rem; text-align:center; margin-bottom:2px; }
+.op-card[data-op="ortho"]   .op-sym { color:#2355b0; }
+.op-card[data-op="conjug"]  .op-sym { color:#b02323; }
+.op-card[data-op="gram"]    .op-sym { color:#7b2ff7; }
+.op-card[data-op="vocab"]   .op-sym { color:#b07a00; }
+
+.op-nom { font-size:.72rem; font-weight:900; text-align:center; color:#333; margin:2px 0 6px; }
+.lvl-row { display:flex; flex-wrap:wrap; gap:3px; justify-content:center; }
+.lb {
+  background:#e0eaf5; border:2px solid #b8cfe0; border-radius:6px;
+  padding:2px 6px; font-size:.58rem; font-weight:800; color:#445;
+  cursor:pointer; font-family:'Nunito',sans-serif; transition:background .12s;
+}
+.lb.on { background:var(--jaune); border-color:#d4a800; color:#333; }
+
+.cfg-row {
+  display:flex; align-items:center; gap:12px;
+  background:rgba(255,255,255,0.9); border-radius:14px;
+  padding:10px 18px; max-width:460px; width:100%;
+  box-shadow:0 3px 10px rgba(0,0,0,0.12); flex-shrink:0;
+}
+.cfg-row label { font-weight:900; font-size:.85rem; color:#333; }
+.cfg-row input[type=range] { flex:1; accent-color:var(--bleu); }
+.cfg-row span { font-family:'Fredoka One',cursive; font-size:1.3rem; color:var(--bleu); min-width:24px; }
+
+.btn-go-cfg {
+  font-family:'Fredoka One',cursive; font-size:1.6rem; letter-spacing:2px;
+  padding:13px 42px; border-radius:50px; border:none;
+  background:linear-gradient(135deg,#1a6edb,#7b2ff7); color:#fff;
+  cursor:pointer; box-shadow:0 6px 22px rgba(26,110,219,0.45);
+  transition:transform .12s; flex-shrink:0;
+}
+.btn-go-cfg:active { transform:scale(0.96); }
+
+/* ========== JEU ========== */
+#game { background:linear-gradient(160deg,#5a9e6e 0%,#3a6147 100%); }
+
+.top-bar {
+  height:44px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 10px; background:rgba(0,0,0,0.22); gap:8px;
+}
+.tscore { font-family:'Fredoka One',cursive; font-size:1.2rem; display:flex; align-items:center; gap:6px; }
+.tscore.b { color:#a8d4ff; }
+.tscore.r { color:#ffaaaa; }
+.tscore .sv { background:rgba(255,255,255,0.2); border-radius:8px; padding:1px 12px; color:#fff; font-size:1.35rem; }
+.top-info { font-size:.7rem; color:rgba(255,255,255,.8); font-weight:800; text-align:center; line-height:1.3; }
+.btn-q { background:rgba(255,255,255,.15); border:none; border-radius:7px; color:rgba(255,255,255,.7); padding:5px 10px; font-size:.8rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; }
+
+/* Zone principale */
+.game-body { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; gap:5px; padding:5px; }
+
+/* Arena */
+.arena-col { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; min-height:0; position:relative; }
+
+/* Barre progression */
+.prog { height:12px; flex-shrink:0; position:relative; background:rgba(0,0,0,.18); overflow:hidden; border-radius:6px; margin-bottom:4px; }
+.prog-r { position:absolute; top:0; bottom:0; left:0; background:var(--rouge-l); transition:right .4s cubic-bezier(.34,1.56,.64,1); border-radius:6px 0 0 6px; }
+.prog-b { position:absolute; top:0; bottom:0; right:0; background:var(--bleu-l); transition:left .4s cubic-bezier(.34,1.56,.64,1); border-radius:0 6px 6px 0; }
+.prog-mid { position:absolute; top:0; bottom:0; left:50%; width:3px; transform:translateX(-50%); background:rgba(255,255,255,.7); }
+
+.arena { flex:1; position:relative; overflow:hidden; min-height:0; }
+.arena-svg { position:absolute; width:100%; height:100%; top:0; left:0; }
+
+.perso { position:absolute; bottom:4px; display:flex; flex-direction:column; align-items:center; gap:1px; pointer-events:none; transition:transform .45s cubic-bezier(.34,1.56,.64,1); }
+#pb { left:12%; }
+#pr { right:12%; }
+.pname { font-size:.55rem; font-weight:900; color:rgba(255,255,255,.85); font-family:'Nunito',sans-serif; }
+
+/* Question centrale dans l'arena */
+.question-box {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(255,255,255,0.97); border-radius:20px;
+  padding:14px 22px; text-align:center; width:55%; max-width:480px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.25); z-index:10;
+  min-height:70px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+}
+.q-label { font-size:.65rem; font-weight:900; color:#888; text-transform:uppercase; letter-spacing:1px; }
+.q-text { font-family:'Fredoka One',cursive; font-size:clamp(1rem,2.5vw,1.6rem); color:#222; line-height:1.3; }
+
+/* Rangée claviers (4 boutons A/B/C/D par clavier) */
+.kb-row {
+  height:240px; flex-shrink:0;
+  display:flex; flex-direction:row; gap:0; pointer-events:none;
+}
+.kb-group { display:flex; flex-direction:row; gap:192px; pointer-events:all; }
+.kb-group.left  { margin-right:auto; padding-right:30px; }
+.kb-group.right { margin-left:auto;  padding-left:30px; }
+
+.kb {
+  width:160px; flex-shrink:0;
+  background:var(--gris-clav); border-radius:14px; padding:6px 5px;
+  display:flex; flex-direction:column; gap:4px;
+  box-shadow:0 4px 14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.8);
+  overflow:hidden;
+}
+.kb.bk { border:3px solid var(--bleu); }
+.kb.rk { border:3px solid var(--rouge); }
+
+/* Afficheur question mini dans clavier */
+.kb-q-mini {
+  border-radius:8px; padding:4px 5px; text-align:center;
+  font-family:'Fredoka One',cursive; font-size:clamp(.65rem,.9vw,.8rem); color:#fff; flex-shrink:0;
+  min-height:26px; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.22); line-height:1.2;
+}
+.bk .kb-q-mini { background:var(--bleu); }
+.rk .kb-q-mini { background:var(--rouge); }
+
+/* Grille A B C D */
+.kb-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; flex:1; min-height:0; }
+
+.kb-btn {
+  background:var(--blanc); border:none; border-radius:10px;
+  font-family:'Fredoka One',cursive; font-size:clamp(.65rem,.9vw,.85rem); color:#334;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 3px 0 rgba(0,0,0,.12); transition:transform .07s, box-shadow .07s;
+  min-height:0; user-select:none; padding:2px 3px; text-align:center; line-height:1.2;
+  word-break:break-word; overflow:hidden;
+}
+.kb-btn:active { transform:scale(0.88) translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.12); }
+.kb-btn.ok-flash { background:var(--vert) !important; color:#fff; animation:fok .35s; }
+.kb-btn.ko-flash { background:var(--rouge-l) !important; color:#fff; animation:fko .3s; }
+@keyframes fok { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+@keyframes fko { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+.kb-pts { text-align:center; font-size:.58rem; font-weight:900; color:#556; flex-shrink:0; }
+.bk .kb-pts span { color:var(--bleu); font-family:'Fredoka One',cursive; font-size:.75rem; }
+.rk .kb-pts span { color:var(--rouge); font-family:'Fredoka One',cursive; font-size:.75rem; }
+
+/* ========== VICTOIRE ========== */
+#win {
+  background:linear-gradient(160deg,#5a9e6e 0%,#3a6147 100%);
+  align-items:center; justify-content:center; gap:18px; padding:30px;
+}
+.win-ico { font-size:4rem; animation:bonce 1s infinite alternate; }
+@keyframes bonce { from{transform:translateY(0)} to{transform:translateY(-18px)} }
+.win-big { font-family:'Fredoka One',cursive; font-size:clamp(2rem,7vw,4.5rem); color:#fff; text-shadow:0 4px 14px rgba(0,0,0,.3); text-align:center; }
+.win-sub { color:rgba(255,255,255,.9); font-size:1rem; font-weight:800; }
+.win-sc { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; }
+.wbox { background:rgba(255,255,255,.92); border-radius:16px; padding:16px 26px; box-shadow:0 5px 18px rgba(0,0,0,.2); }
+.wbox .wl { font-size:.85rem; font-weight:900; color:#556; margin-bottom:4px; }
+.wbox .wv { font-family:'Fredoka One',cursive; font-size:2.6rem; }
+.wbox.wb .wv { color:var(--bleu); }
+.wbox.wr .wv { color:var(--rouge); }
+.wbtns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+.wbtn { font-family:'Fredoka One',cursive; font-size:1.2rem; padding:12px 30px; border-radius:50px; border:none; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.2); transition:transform .12s; }
+.wbtn:active { transform:scale(0.95); }
+.wbtn.wc { background:rgba(255,255,255,.92); color:#333; }
+.wbtn.wp { background:linear-gradient(135deg,var(--bleu),#7b2ff7); color:#fff; }
+
+.cft { position:fixed; pointer-events:none; border-radius:2px; animation:cffall linear forwards; }
+@keyframes cffall { 0%{transform:translateY(-20px) rotate(0);opacity:1} 100%{transform:translateY(110vh) rotate(600deg);opacity:0} }
+</style>
+</head>
+<body>
+
+<!-- ========== CONFIG ========== -->
+<div id="cfg" class="screen on">
+  <div class="cfg-title">🪢 Tir à la Corde – Français</div>
+
+  <div class="cfg-ops">
+
+    <!-- ORTHOGRAPHE -->
+    <div class="op-card sel" data-op="ortho" onclick="pickOp(this)">
+      <div class="op-sym">✏️</div>
+      <div class="op-nom">Orthographe</div>
+      <div class="lvl-row" id="lv-ortho">
+        <button class="lb on" onclick="pickLvl(event,'ortho',0)">CP</button>
+        <button class="lb" onclick="pickLvl(event,'ortho',1)">CE1</button>
+        <button class="lb" onclick="pickLvl(event,'ortho',2)">CE2</button>
+        <button class="lb" onclick="pickLvl(event,'ortho',3)">CM1</button>
+        <button class="lb" onclick="pickLvl(event,'ortho',4)">CM2</button>
+      </div>
+    </div>
+
+    <!-- CONJUGAISON -->
+    <div class="op-card" data-op="conjug" onclick="pickOp(this)">
+      <div class="op-sym">🔄</div>
+      <div class="op-nom">Conjugaison</div>
+      <div class="lvl-row" id="lv-conjug">
+        <button class="lb on" onclick="pickLvl(event,'conjug',0)">CP</button>
+        <button class="lb" onclick="pickLvl(event,'conjug',1)">CE1</button>
+        <button class="lb" onclick="pickLvl(event,'conjug',2)">CE2</button>
+        <button class="lb" onclick="pickLvl(event,'conjug',3)">CM1</button>
+        <button class="lb" onclick="pickLvl(event,'conjug',4)">CM2</button>
+      </div>
+    </div>
+
+    <!-- GRAMMAIRE -->
+    <div class="op-card" data-op="gram" onclick="pickOp(this)">
+      <div class="op-sym">📚</div>
+      <div class="op-nom">Grammaire</div>
+      <div class="lvl-row" id="lv-gram">
+        <button class="lb on" onclick="pickLvl(event,'gram',0)">CP</button>
+        <button class="lb" onclick="pickLvl(event,'gram',1)">CE1</button>
+        <button class="lb" onclick="pickLvl(event,'gram',2)">CE2</button>
+        <button class="lb" onclick="pickLvl(event,'gram',3)">CM1</button>
+        <button class="lb" onclick="pickLvl(event,'gram',4)">CM2</button>
+      </div>
+    </div>
+
+    <!-- VOCABULAIRE -->
+    <div class="op-card" data-op="vocab" onclick="pickOp(this)">
+      <div class="op-sym">💬</div>
+      <div class="op-nom">Vocabulaire</div>
+      <div class="lvl-row" id="lv-vocab">
+        <button class="lb on" onclick="pickLvl(event,'vocab',0)">CP</button>
+        <button class="lb" onclick="pickLvl(event,'vocab',1)">CE1</button>
+        <button class="lb" onclick="pickLvl(event,'vocab',2)">CE2</button>
+        <button class="lb" onclick="pickLvl(event,'vocab',3)">CM1</button>
+        <button class="lb" onclick="pickLvl(event,'vocab',4)">CM2</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="cfg-row">
+    <label>🏆 Points d'écart pour gagner</label>
+    <input type="range" id="rng" min="3" max="20" value="7" oninput="document.getElementById('rv').textContent=this.value">
+    <span id="rv">7</span>
+  </div>
+  <button class="btn-go-cfg" onclick="startGame()">🚀 JOUER !</button>
+</div>
+
+<!-- ========== JEU ========== -->
+<div id="game" class="screen">
+  <div class="top-bar">
+    <div class="tscore b">🔵 <span class="sv" id="sc-b">0</span></div>
+    <div class="top-info" id="top-info">Orthographe · CP</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="tscore r"><span class="sv" id="sc-r">0</span> 🔴</div>
+      <button class="btn-q" onclick="goConfig()">✕</button>
+    </div>
+  </div>
+
+  <div class="game-body">
+    <div class="arena-col">
+      <div class="prog">
+        <div class="prog-r" id="pr-bar" style="right:50%"></div>
+        <div class="prog-b" id="pb-bar" style="left:50%"></div>
+        <div class="prog-mid"></div>
+      </div>
+
+      <div class="arena">
+        <svg class="arena-svg" viewBox="0 0 1000 300" preserveAspectRatio="none">
+          <rect x="0" y="270" width="1000" height="30" fill="rgba(40,100,40,0.3)"/>
+          <line x1="0" y1="270" x2="1000" y2="270" stroke="rgba(80,160,80,0.4)" stroke-width="2"/>
+          <line x1="500" y1="0" x2="500" y2="300" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-dasharray="10,8"/>
+          <rect x="0" y="0" width="80" height="300" fill="rgba(180,35,35,0.12)"/>
+          <rect x="920" y="0" width="80" height="300" fill="rgba(35,85,176,0.12)"/>
+          <path id="rp1" d="" stroke="#8B6914" stroke-width="9" fill="none" stroke-linecap="round"/>
+          <path id="rp2" d="" stroke="#e5c86d" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.65"/>
+          <g id="fg" transform="translate(500,155)">
+            <rect x="-4" y="-50" width="8" height="100" fill="#555" rx="4"/>
+            <polygon points="0,-50 34,-32 0,-14" fill="#e63946"/>
+            <polygon points="0,-50 -34,-32 0,-14" fill="#e63946" opacity="0.5"/>
+          </g>
+        </svg>
+
+        <!-- Question centrale commune aux 4 joueurs -->
+        <div class="question-box" id="question-box">
+          <div class="q-label" id="q-label">Question</div>
+          <div class="q-text" id="q-text">–</div>
+        </div>
+
+        <!-- Perso BLEU -->
+        <div id="pb" class="perso">
+          <svg width="144" height="176" viewBox="0 0 64 78">
+            <ellipse cx="32" cy="72" rx="16" ry="5" fill="rgba(0,0,0,0.13)"/>
+            <rect x="19" y="50" width="8" height="18" rx="4" fill="#1a3a8a"/>
+            <rect x="29" y="53" width="8" height="15" rx="4" fill="#1a3a8a"/>
+            <ellipse cx="23" cy="68" rx="7" ry="3.5" fill="#111"/>
+            <ellipse cx="33" cy="68" rx="7" ry="3.5" fill="#111"/>
+            <rect x="14" y="30" width="28" height="24" rx="8" fill="#2355b0"/>
+            <path d="M14,38 Q4,40 0,44" stroke="#2355b0" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <circle cx="0" cy="44" r="5" fill="#f5c0a0"/>
+            <path d="M42,38 Q50,36 53,34" stroke="#2355b0" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <circle cx="32" cy="20" r="14" fill="#f5c0a0"/>
+            <ellipse cx="32" cy="8" rx="13" ry="7" fill="#2a1800"/>
+            <path d="M19,15 Q32,5 45,15" fill="#2a1800" stroke="none"/>
+            <circle cx="26" cy="20" r="2.5" fill="#fff"/><circle cx="38" cy="20" r="2.5" fill="#fff"/>
+            <circle cx="27" cy="21" r="1.3" fill="#222"/><circle cx="39" cy="21" r="1.3" fill="#222"/>
+            <path d="M28,28 Q32,31 36,28" stroke="#c07060" stroke-width="2" fill="none"/>
+            <path d="M20,34 Q32,40 44,34" stroke="#74b9ff" stroke-width="5" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="pname">BLEU</div>
+        </div>
+
+        <!-- Perso ROUGE -->
+        <div id="pr" class="perso">
+          <svg width="144" height="176" viewBox="0 0 64 78" style="transform:scaleX(-1)">
+            <ellipse cx="32" cy="72" rx="16" ry="5" fill="rgba(0,0,0,0.13)"/>
+            <rect x="19" y="50" width="8" height="18" rx="4" fill="#8a1a1a"/>
+            <rect x="29" y="53" width="8" height="15" rx="4" fill="#8a1a1a"/>
+            <ellipse cx="23" cy="68" rx="7" ry="3.5" fill="#111"/>
+            <ellipse cx="33" cy="68" rx="7" ry="3.5" fill="#111"/>
+            <rect x="14" y="30" width="28" height="24" rx="8" fill="#b02323"/>
+            <path d="M14,38 Q4,40 0,44" stroke="#b02323" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <circle cx="0" cy="44" r="5" fill="#f5c0a0"/>
+            <path d="M42,38 Q50,36 53,34" stroke="#b02323" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <circle cx="32" cy="20" r="14" fill="#f5c0a0"/>
+            <ellipse cx="32" cy="8" rx="13" ry="7" fill="#1a0a00"/>
+            <path d="M19,15 Q32,5 45,15" fill="#1a0a00" stroke="none"/>
+            <circle cx="26" cy="20" r="2.5" fill="#fff"/><circle cx="38" cy="20" r="2.5" fill="#fff"/>
+            <circle cx="27" cy="21" r="1.3" fill="#222"/><circle cx="39" cy="21" r="1.3" fill="#222"/>
+            <path d="M28,28 Q32,31 36,28" stroke="#c07060" stroke-width="2" fill="none"/>
+            <path d="M20,34 Q32,40 44,34" stroke="#ff9999" stroke-width="5" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="pname">ROUGE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 claviers ABCD -->
+    <div class="kb-row">
+      <div class="kb-group left">
+        <div class="kb bk" id="kb-b1">
+          <div class="kb-q-mini">J1 Bleu</div>
+          <div class="kb-grid" id="g-b1"></div>
+          <div class="kb-pts">Pts : <span id="p-b1">0</span></div>
+        </div>
+        <div class="kb bk" id="kb-b2">
+          <div class="kb-q-mini">J2 Bleu</div>
+          <div class="kb-grid" id="g-b2"></div>
+          <div class="kb-pts">Pts : <span id="p-b2">0</span></div>
+        </div>
+      </div>
+      <div class="kb-sep" style="flex:1"></div>
+      <div class="kb-group right">
+        <div class="kb rk" id="kb-r1">
+          <div class="kb-q-mini">J1 Rouge</div>
+          <div class="kb-grid" id="g-r1"></div>
+          <div class="kb-pts">Pts : <span id="p-r1">0</span></div>
+        </div>
+        <div class="kb rk" id="kb-r2">
+          <div class="kb-q-mini">J2 Rouge</div>
+          <div class="kb-grid" id="g-r2"></div>
+          <div class="kb-pts">Pts : <span id="p-r2">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== VICTOIRE ========== -->
+<div id="win" class="screen">
+  <div class="win-ico">🏆</div>
+  <div class="win-big" id="wm">ÉQUIPE BLEUE GAGNE !</div>
+  <div class="win-sub" id="wd">Bravo !</div>
+  <div class="win-sc">
+    <div class="wbox wb"><div class="wl">🔵 Équipe Bleue</div><div class="wv" id="ws-b">0</div></div>
+    <div class="wbox wr"><div class="wl">🔴 Équipe Rouge</div><div class="wv" id="ws-r">0</div></div>
+  </div>
+  <div class="wbtns">
+    <button class="wbtn wc" onclick="goConfig()">⚙️ Config</button>
+    <button class="wbtn wp" onclick="replayGame()">🔁 Rejouer</button>
+  </div>
+</div>
+
+<script>
+// ===================================================
+// BASE DE QUESTIONS par domaine et niveau
+// Programmes officiels EN : cycle 2 (CP-CE2) / cycle 3 (CM1-CM2)
+// ===================================================
+
+const QUESTIONS = {
+
+  // ---- ORTHOGRAPHE ----
+  ortho: [
+    // CP : sons simples, lettres muettes, accords singulier/pluriel simples
+    [
+      {q:"Comment écrit-on le son [o] dans « bateau » ?", r:"eau", c:["o","au","eau","oo"]},
+      {q:"Quel mot s'écrit avec un 's' final muet ?", r:"bras", c:["chat","bras","nid","sol"]},
+      {q:"Comment s'écrit le pluriel de « chat » ?", r:"chats", c:["chats","chates","chatz","chat"]},
+      {q:"Quel mot contient le son [f] ?", r:"phare", c:["mare","phare","pare","tare"]},
+      {q:"Le mot « soleil » se termine par :", r:"-eil", c:["-el","-eil","-aile","-il"]},
+      {q:"Comment s'écrit le son [s] dans « cerise » ?", r:"c", c:["s","c","ss","ç"]},
+      {q:"Quel mot rime avec « maison » ?", r:"saison", c:["raison","masson","saison","poison"]},
+      {q:"Comment écrit-on « un oiseau » au pluriel ?", r:"des oiseaux", c:["des oiseaux","des oiseaus","des oiseau","des oiseauz"]},
+    ],
+    // CE1 : accord nom/adj, féminin, homophones a/à, est/et, son/sont
+    [
+      {q:"Quelle est la bonne orthographe ?", r:"une belle fleur", c:["une bel fleur","une belle fleur","une beau fleur","un belle fleur"]},
+      {q:"« Il ___ parti. » — Quel mot convient ?", r:"est", c:["est","et","es","ai"]},
+      {q:"« Elle mange ___ chocolat. » — Quel mot convient ?", r:"du", c:["de","du","des","un"]},
+      {q:"Le féminin de « boulanger » est :", r:"boulangère", c:["boulangère","boulangeuse","boulangeresse","boulangeuse"]},
+      {q:"« Les enfants ___ sages. » — Quel mot convient ?", r:"sont", c:["son","sont","sond","sons"]},
+      {q:"Quel mot est mal orthographié ?", r:"biscuie", c:["biscuie","vélo","chien","maison"]},
+      {q:"« Il va ___ école. » — Quel mot convient ?", r:"à l'", c:["a l'","à l'","à la","au"]},
+      {q:"Comment s'écrit le féminin de « acteur » ?", r:"actrice", c:["acteure","acteuse","actrice","acteure"]},
+    ],
+    // CE2 : accords dans le GN, homophones grammaticaux, pluriel en -aux, -eux
+    [
+      {q:"Quel est le pluriel de « journal » ?", r:"journaux", c:["journaux","journaux","journals","journales"]},
+      {q:"« Ces ___ manteaux sont chauds. » — Quel adjectif convient ?", r:"vieux", c:["vieux","vieil","vieils","vieille"]},
+      {q:"Quel homophone choisir ? « Il ___ venu hier. »", r:"est", c:["et","est","ai","ait"]},
+      {q:"Comment accorde-t-on l'adjectif ? « Des pommes ___ »", r:"vertes", c:["verts","vert","vertes","verte"]},
+      {q:"Quel est le pluriel de « œil » ?", r:"yeux", c:["œils","yeux","œil","œies"]},
+      {q:"Le pluriel de « cheval » est :", r:"chevaux", c:["chevals","chevaux","chevales","chevale"]},
+      {q:"Quel mot est un homonyme de « ver » ?", r:"verre", c:["verre","faire","terre","barre"]},
+      {q:"Comment écrit-on : « Elles sont ___ » (beau) ?", r:"belles", c:["beaux","belle","belles","bels"]},
+    ],
+    // CM1 : accord sujet/verbe, participe passé, homophones complexes (ce/se, ces/ses/c'est/s'est)
+    [
+      {q:"« Les oiseaux ___ dans le ciel. » — Quel verbe convient ?", r:"volent", c:["vole","volez","volent","volons"]},
+      {q:"Quel est l'accord correct ? « Les enfants sont ___ »", r:"fatigués", c:["fatigué","fatiguées","fatigués","fatiguée"]},
+      {q:"« ___ livre est à moi. » Quel mot choisir ?", r:"Ce", c:["Se","Ce","Sa","C'est"]},
+      {q:"« Elle ___ lavée. » — Quel auxiliaire ?", r:"s'est", c:["c'est","ces","ses","s'est"]},
+      {q:"Quel est le participe passé de « prendre » ?", r:"pris", c:["pris","prit","prend","prendre"]},
+      {q:"« ___ chaussures sont neuves. » — Quel mot ?", r:"Ses", c:["Ces","Ses","C'est","S'est"]},
+      {q:"Accord correct : « Les roses que j'ai ___ »", r:"cueillies", c:["cueilli","cueillis","cueillies","cueillée"]},
+      {q:"« Il faut que tu ___ sage. » — Quel mot ?", r:"sois", c:["soit","sois","es","aies"]},
+    ],
+    // CM2 : accord participe passé avec avoir/être, homophones avancés, leur/leurs
+    [
+      {q:"« Les lettres qu'il a ___ sont belles. » — Accord ?", r:"écrites", c:["écrit","écrits","écrites","écrite"]},
+      {q:"« ___ ont rangé ___ affaires. » — Quel couple ?", r:"Ils / leurs", c:["Ils / leur","Il / leurs","Ils / leurs","Ile / leur"]},
+      {q:"Quel mot s'écrit avec un accent circonflexe ?", r:"forêt", c:["foret","forêt","fôret","fôrêt"]},
+      {q:"Accord correct : « Elles se sont ___ » (blesser)", r:"blessées", c:["blessé","blessés","blessées","blessée"]},
+      {q:"Quel est l'infinitif de « il résout » ?", r:"résoudre", c:["résoudre","résoudrir","résoudrer","résolvir"]},
+      {q:"« ___ est parti tôt. » — Quel mot ?", r:"Celui-ci", c:["Celui-ci","Ceux-ci","Celle-ci","Ceux-là"]},
+      {q:"Pluriel correct de « bal » ?", r:"bals", c:["bals","baux","bales","bale"]},
+      {q:"Quel mot est invariable ?", r:"vite", c:["vite","beau","grand","bon"]},
+    ],
+  ],
+
+  // ---- CONJUGAISON ----
+  conjug: [
+    // CP : présent être et avoir, verbes du 1er groupe courants
+    [
+      {q:"« Je ___ un enfant. » (être)", r:"suis", c:["suis","es","est","sommes"]},
+      {q:"« Tu ___ un livre. » (avoir)", r:"as", c:["ai","as","a","avez"]},
+      {q:"« Il ___ à l'école. » (aller)", r:"va", c:["vais","vas","va","vont"]},
+      {q:"« Nous ___ le ballon. » (lancer)", r:"lançons", c:["lançons","lancer","lancent","lancez"]},
+      {q:"« Ils ___ dans la cour. » (jouer)", r:"jouent", c:["joue","joues","jouent","jouons"]},
+      {q:"« Elle ___ une pomme. » (manger)", r:"mange", c:["manges","mange","mangeons","mangez"]},
+      {q:"Quel verbe est conjugué au présent ?", r:"il chante", c:["il chanté","il chanta","il chante","il chantera"]},
+      {q:"« Vous ___ contents. » (être)", r:"êtes", c:["êtes","sont","sommes","suis"]},
+    ],
+    // CE1 : présent 1er/2e groupe, futur proche, imparfait de être/avoir
+    [
+      {q:"« Il ___ la classe demain. » (nettoyer, futur proche)", r:"va nettoyer", c:["va nettoyer","va nettoya","ira nettoyer","nettoyera"]},
+      {q:"« Nous ___ nos leçons. » (finir, présent)", r:"finissons", c:["finissons","finissez","finissent","finisons"]},
+      {q:"« J'___ fatigué hier. » (être, imparfait)", r:"étais", c:["étais","était","avais","suis"]},
+      {q:"« Tu ___ de la chance ! » (avoir, présent)", r:"as", c:["as","ai","a","avez"]},
+      {q:"« Ils ___ rapidement. » (courir, présent)", r:"courent", c:["courent","court","coure","courons"]},
+      {q:"Quel verbe est à l'imparfait ?", r:"elle chantait", c:["elle chante","elle chantera","elle chantait","elle a chanté"]},
+      {q:"« Vous ___ ce film ? » (voir, présent)", r:"voyez", c:["voyez","voys","voies","voient"]},
+      {q:"« Nous ___ au parc. » (aller, futur proche)", r:"allons aller", c:["allons aller","allons allez","irons","allons"]},
+    ],
+    // CE2 : passé composé, futur simple, imparfait 1er/2e groupe
+    [
+      {q:"« Il ___ la porte hier. » (fermer, passé composé)", r:"a fermé", c:["a fermé","est fermé","a fermer","avait fermé"]},
+      {q:"« Demain, je ___ mes devoirs. » (finir, futur)", r:"finirai", c:["finirai","finirais","finis","finissais"]},
+      {q:"« Nous ___ souvent au bord de la mer. » (aller, imparfait)", r:"allions", c:["allions","allons","irons","sommes allés"]},
+      {q:"« Elles ___ la vérité. » (dire, passé composé)", r:"ont dit", c:["ont dit","ont dire","sont dites","ont dites"]},
+      {q:"Quel temps est utilisé ? « Il jouait dans le jardin. »", r:"imparfait", c:["présent","imparfait","futur","passé composé"]},
+      {q:"« Tu ___ à Paris un jour. » (aller, futur)", r:"iras", c:["iras","vas","irait","irais"]},
+      {q:"Passé composé de « venir » à la 3e personne ?", r:"il est venu", c:["il est venu","il a venu","il est venir","il venu"]},
+      {q:"« Autrefois, les enfants ___ à pied. » (marcher, imparfait)", r:"marchaient", c:["marchent","marcheront","marchaient","ont marché"]},
+    ],
+    // CM1 : passé simple, plus-que-parfait, conditionnel présent
+    [
+      {q:"« Il ___ le chemin. » (trouver, passé simple)", r:"trouva", c:["trouva","a trouvé","trouve","trouvait"]},
+      {q:"« Quand il ___ mangé, il sortit. » (avoir, plus-que-parfait)", r:"eut", c:["eut","avait","a","aura"]},
+      {q:"« Si j'avais du temps, je ___ . » (lire, conditionnel)", r:"lirais", c:["lirais","lis","lirai","lisais"]},
+      {q:"Passé simple de « être » à la 3e personne du pluriel ?", r:"furent", c:["furent","étaient","ont été","sont"]},
+      {q:"Quel temps ? « Il prit son manteau et sortit. »", r:"passé simple", c:["passé simple","passé composé","imparfait","présent"]},
+      {q:"« Nous ___ partis avant l'aube. » (être, plus-que-parfait)", r:"étions", c:["étions","sommes","fûmes","avons"]},
+      {q:"Conditionnel présent de « avoir » à la 1re personne ?", r:"j'aurais", c:["j'aurais","j'aurai","j'avais","j'ai"]},
+      {q:"Passé simple de « faire » à la 3e personne ?", r:"fit", c:["fit","a fait","faisait","fera"]},
+    ],
+    // CM2 : subjonctif présent, impératif, voix passive, formes composées
+    [
+      {q:"« Il faut que tu ___ la vérité. » (dire, subjonctif)", r:"dises", c:["dises","dis","dira","dirais"]},
+      {q:"« Bien que nous ___ fatigués… » (être, subjonctif)", r:"soyons", c:["sommes","soyons","sois","serions"]},
+      {q:"Impératif présent de « partir » à la 2e pers. du pluriel ?", r:"Partez", c:["Partez","Partes","Partez-vous","Allez partir"]},
+      {q:"« La lettre ___ par Paul. » (écrire, voix passive)", r:"a été écrite", c:["a été écrite","est écrite par","a écrit","avait écrit"]},
+      {q:"Quel temps ? « Avant qu'il vînt, tout était calme. »", r:"subjonctif imparfait", c:["subjonctif imparfait","subjonctif présent","imparfait","conditionnel"]},
+      {q:"« Que tu ___ ou non, je partirai. » (vouloir, subjonctif)", r:"veuilles", c:["veuilles","veux","voudras","voudrais"]},
+      {q:"Futur antérieur : « Quand tu ___ fini, appelle-moi. »", r:"auras", c:["auras","avais","aies","eus"]},
+      {q:"Impératif de « se taire » à la 2e personne du singulier ?", r:"Tais-toi", c:["Tais-toi","Te tais","Taire-toi","Taises-toi"]},
+    ],
+  ],
+
+  // ---- GRAMMAIRE ----
+  gram: [
+    // CP : phrase/non-phrase, majuscule/point, nom/verbe
+    [
+      {q:"Lequel est une phrase correcte ?", r:"Le chat dort.", c:["Le chat dort.","chat dort le","dort le chat","chat le dort."]},
+      {q:"Quel mot est un nom ?", r:"maison", c:["maison","court","vite","grand"]},
+      {q:"Quel mot est un verbe ?", r:"chante", c:["fleur","chante","beau","soleil"]},
+      {q:"Une phrase commence par :", r:"une majuscule", c:["une majuscule","une virgule","un point","une minuscule"]},
+      {q:"Quel mot est un article ?", r:"le", c:["le","chat","dort","vite"]},
+      {q:"Combien de mots dans « Le petit chat miaule » ?", r:"4", c:["3","4","5","6"]},
+      {q:"Quel signe termine une question ?", r:"?", c:["?","!",".","…"]},
+      {q:"Quel mot est un adjectif ?", r:"petit", c:["petit","sauter","maison","avec"]},
+    ],
+    // CE1 : GN/GV, nature des mots (nom, verbe, adj, art, pronom), accord GN
+    [
+      {q:"Dans « Le grand chien aboie », quel est le GN sujet ?", r:"Le grand chien", c:["Le grand chien","aboie","grand","Le"]},
+      {q:"Quel mot est un pronom personnel ?", r:"elle", c:["elle","beau","mange","lentement"]},
+      {q:"La nature de « rapidement » est :", r:"adverbe", c:["adverbe","adjectif","verbe","nom"]},
+      {q:"Dans « une jolie fleur rouge », combien d'adjectifs ?", r:"2", c:["1","2","3","0"]},
+      {q:"Quel est le verbe dans « Les enfants chantent une chanson » ?", r:"chantent", c:["enfants","chantent","chanson","Les"]},
+      {q:"Quel mot est une préposition ?", r:"dans", c:["dans","chat","jouer","belle"]},
+      {q:"Quel pronom remplace « les enfants » ?", r:"ils", c:["ils","elles","il","on"]},
+      {q:"La fonction du GN souligné : « _Paul_ mange une pomme. »", r:"sujet", c:["sujet","COD","attribut","COI"]},
+    ],
+    // CE2 : sujet/verbe/COD/COI, types de phrases, déterminants
+    [
+      {q:"Dans « Il lit un livre », « un livre » est :", r:"COD", c:["COD","sujet","attribut","COI"]},
+      {q:"Quel type de phrase est « Ferme la porte ! » ?", r:"impérative", c:["déclarative","interrogative","impérative","exclamative"]},
+      {q:"Quel mot est un déterminant possessif ?", r:"son", c:["son","bon","ton chien","le"]},
+      {q:"Dans « Elle pense à ses amis », « à ses amis » est :", r:"COI", c:["COI","COD","sujet","CC de lieu"]},
+      {q:"Quel est le CC de temps dans « Il part demain à Paris » ?", r:"demain", c:["demain","à Paris","Il","part"]},
+      {q:"Une phrase négative contient obligatoirement :", r:"ne … pas", c:["ne … pas","mais","car","donc"]},
+      {q:"Quel pronom est un pronom relatif ?", r:"qui", c:["qui","il","leur","vous"]},
+      {q:"La nature de « lentement » est :", r:"adverbe", c:["adverbe","adjectif","nom","verbe"]},
+    ],
+    // CM1 : propositions, expansions du GN, compléments circonstanciels, fonctions
+    [
+      {q:"Quel est l'attribut du sujet dans « Cet enfant est courageux » ?", r:"courageux", c:["courageux","enfant","est","Cet"]},
+      {q:"Une proposition subordonnée relative commence par :", r:"un pronom relatif", c:["un pronom relatif","une conjonction","un adverbe","un article"]},
+      {q:"Dans « Il part parce qu'il est fatigué », la subordonnée exprime :", r:"la cause", c:["la cause","le but","la conséquence","le temps"]},
+      {q:"Quel mot introduit une subordonnée de but ?", r:"pour que", c:["pour que","parce que","quand","mais"]},
+      {q:"Quel est le CC de manière dans « Elle travaille avec soin » ?", r:"avec soin", c:["avec soin","Elle","travaille","soin"]},
+      {q:"L'apposition dans « Marie, ma sœur, chante bien » est :", r:"ma sœur", c:["ma sœur","Marie","chante","bien"]},
+      {q:"Quel pronom relatif remplace un COI introduit par « de » ?", r:"dont", c:["dont","qui","que","où"]},
+      {q:"Dans « Il mange rapidement », « rapidement » est :", r:"CC de manière", c:["CC de manière","CC de temps","CC de lieu","attribut"]},
+    ],
+    // CM2 : discours direct/indirect, ponctuation avancée, types de subordonnées
+    [
+      {q:"Au discours indirect, « Il dit : 'Je viendrai' » devient :", r:"Il dit qu'il viendrait.", c:["Il dit qu'il viendrait.","Il dit qu'il vient.","Il dit : il viendra.","Il dit qu'il viendra."]},
+      {q:"Quelle ponctuation encadre une proposition incise ?", r:"virgules", c:["virgules","guillemets","parenthèses","tirets"]},
+      {q:"« Bien qu'il soit fatigué, il travaille. » — La subordonnée exprime :", r:"la concession", c:["la concession","la cause","le but","la condition"]},
+      {q:"Si la subordonnée commence par « si », elle exprime :", r:"la condition", c:["la condition","la cause","le temps","la concession"]},
+      {q:"Le pronom « y » remplace un complément introduit par :", r:"à + lieu", c:["à + lieu","de","avec","pour"]},
+      {q:"Dans le discours indirect, le présent devient :", r:"imparfait", c:["imparfait","passé composé","futur","présent"]},
+      {q:"Quel mot est une conjonction de coordination ?", r:"or", c:["or","quand","dont","parce que"]},
+      {q:"La proposition « que le ciel est beau » est :", r:"subordonnée complétive", c:["subordonnée complétive","relative","circonstancielle","principale"]},
+    ],
+  ],
+
+  // ---- VOCABULAIRE ----
+  vocab: [
+    // CP : synonymes simples, contraires simples, champ lexical
+    [
+      {q:"Quel mot veut dire la même chose que « content » ?", r:"heureux", c:["heureux","triste","fatigué","méchant"]},
+      {q:"Quel est le contraire de « grand » ?", r:"petit", c:["petit","gros","lourd","fort"]},
+      {q:"Quel mot appartient au champ lexical de la maison ?", r:"fenêtre", c:["fenêtre","fleur","lapin","nuage"]},
+      {q:"Quel mot veut dire la même chose que « rapide » ?", r:"vite", c:["vite","lent","doux","fort"]},
+      {q:"Le contraire de « chaud » est :", r:"froid", c:["froid","tiède","doux","humide"]},
+      {q:"Quel mot appartient au champ lexical des animaux ?", r:"écureuil", c:["écureuil","salade","voiture","crayon"]},
+      {q:"Synonyme de « belle » ?", r:"jolie", c:["jolie","laide","petite","vieille"]},
+      {q:"Contraire de « début » ?", r:"fin", c:["fin","milieu","suite","avant"]},
+    ],
+    // CE1 : familles de mots, sens propre/figuré simple, préfixes
+    [
+      {q:"Quel mot de la famille de « terre » ?", r:"enterrer", c:["enterrer","errer","terrasse boisée","mer"]},
+      {q:"« Il a le cœur brisé. » Le sens est :", r:"figuré", c:["propre","figuré","littéral","technique"]},
+      {q:"Quel préfixe signifie « contraire » ?", r:"dé-", c:["dé-","re-","sur-","pré-"]},
+      {q:"Synonyme de « fatigué » ?", r:"épuisé", c:["épuisé","reposé","actif","alerte"]},
+      {q:"Quel mot est de la famille de « fleur » ?", r:"fleuriste", c:["fleuriste","fleuve","leur","flûte"]},
+      {q:"Contraire de « monter » avec un préfixe ?", r:"descendre", c:["descendre","remonter","surmonter","démonter"]},
+      {q:"« Avoir le cafard » signifie :", r:"être triste", c:["être triste","avoir peur","avoir froid","être en colère"]},
+      {q:"Quel suffixe forme un nom de métier ?", r:"-eur", c:["-eur","-ment","-ible","-ique"]},
+    ],
+    // CE2 : polysémie, niveau de langue, étymologie simple, familles de mots
+    [
+      {q:"Le mot « grève » peut signifier :", r:"arrêt du travail ou plage", c:["arrêt du travail ou plage","seulement plage","seulement colère","seulement repos"]},
+      {q:"Quel mot vient du latin « manus » (main) ?", r:"manœuvre", c:["manœuvre","manuel","manche","les trois"]},
+      {q:"Quel niveau de langue est « bouffer » ?", r:"familier", c:["familier","soutenu","courant","technique"]},
+      {q:"Synonyme soutenu de « maison » ?", r:"demeure", c:["demeure","cabane","baraque","logis"]},
+      {q:"Quel mot est de la même famille que « voir » ?", r:"prévoir", c:["prévoir","voix","voirie","voile"]},
+      {q:"« Brûler les étapes » signifie :", r:"aller trop vite", c:["aller trop vite","prendre son temps","travailler dur","tout brûler"]},
+      {q:"Le préfixe « bi- » signifie :", r:"deux", c:["deux","un","trois","après"]},
+      {q:"Contraire de « bienveillant » ?", r:"malveillant", c:["malveillant","indulgent","attentif","curieux"]},
+    ],
+    // CM1 : figures de style simples, niveaux de langue, dérivation, registres
+    [
+      {q:"« Le vent hurle dans la forêt. » — Cette figure est une :", r:"personnification", c:["personnification","métaphore","comparaison","hyperbole"]},
+      {q:"« Il est fort comme un lion. » — Cette figure est une :", r:"comparaison", c:["comparaison","métaphore","personnification","antithèse"]},
+      {q:"Quel registre emploie-t-on dans une rédaction scolaire ?", r:"courant", c:["courant","familier","argotique","vulgaire"]},
+      {q:"Quel mot est formé par composition ?", r:"porte-monnaie", c:["porte-monnaie","boulanger","rapide","chanteur"]},
+      {q:"Le suffixe « -tion » forme généralement des :", r:"noms", c:["noms","adjectifs","verbes","adverbes"]},
+      {q:"Synonyme de « téméraire » ?", r:"audacieux", c:["audacieux","timide","prudent","doux"]},
+      {q:"« Une chaleur de plomb » est :", r:"une métaphore", c:["une métaphore","une comparaison","une personnification","une antithèse"]},
+      {q:"Le mot « football » vient de :", r:"l'anglais", c:["l'anglais","l'espagnol","l'arabe","l'italien"]},
+    ],
+    // CM2 : figures de style complexes, étymologie, sens dénoté/connoté, registres
+    [
+      {q:"« Victoire ! criait-il, mais la défaite était là. » — Cette figure est :", r:"antithèse", c:["antithèse","métaphore","comparaison","ellipse"]},
+      {q:"Le sens connoté d'un mot est son sens :", r:"évocateur/subjectif", c:["évocateur/subjectif","premier/littéral","technique","étymologique"]},
+      {q:"Quel mot a une étymologie grecque ?", r:"philosophie", c:["philosophie","château","tableau","jardin"]},
+      {q:"Une périphrase consiste à :", r:"remplacer un mot par plusieurs", c:["remplacer un mot par plusieurs","raccourcir une phrase","répéter un mot","inverser l'ordre des mots"]},
+      {q:"« Un silence de mort régna. » — Cette figure est :", r:"une métaphore", c:["une métaphore","une comparaison","une hyperbole","une périphrase"]},
+      {q:"Quel registre caractérise un texte littéraire soigné ?", r:"soutenu", c:["soutenu","familier","courant","argotique"]},
+      {q:"Le mot « aquarium » vient du latin « aqua » qui signifie :", r:"eau", c:["eau","air","feu","terre"]},
+      {q:"« Je meurs de faim ! » est une :", r:"hyperbole", c:["hyperbole","métaphore","comparaison","antithèse"]},
+    ],
+  ],
+};
+
+// ===================================================
+// ÉTAT
+// ===================================================
+let selOp='ortho', selLvl={ortho:0,conjug:0,gram:0,vocab:0};
+let target=7, running=false, lastCfg=null;
+let scores={b:0,r:0}, ppts={b1:0,b2:0,r1:0,r2:0};
+let curQ=null, curAnswered={b1:false,b2:false,r1:false,r2:false};
+const PLAYERS=['b1','b2','r1','r2'];
+
+// ===================================================
+// CONFIG
+// ===================================================
+function pickOp(card){
+  document.querySelectorAll('.op-card').forEach(c=>c.classList.remove('sel'));
+  card.classList.add('sel'); selOp=card.dataset.op;
+}
+function pickLvl(e,op,lvl){
+  e.stopPropagation();
+  document.querySelectorAll(`#lv-${op} .lb`).forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on'); selLvl[op]=lvl;
+  pickOp(e.target.closest('.op-card'));
+}
+
+// ===================================================
+// QUESTIONS
+// ===================================================
+let usedIdx=[];
+function genQ(){
+  const pool=QUESTIONS[selOp][selLvl[selOp]];
+  if(usedIdx.length>=pool.length) usedIdx=[];
+  let idx;
+  do { idx=Math.floor(Math.random()*pool.length); } while(usedIdx.includes(idx));
+  usedIdx.push(idx);
+  const q=pool[idx];
+  // Mélanger les choix
+  const choices=[...q.c].sort(()=>Math.random()-0.5);
+  return {txt:q.q, label:opLabel(), r:q.r, choices};
+}
+
+function opLabel(){
+  const n={ortho:'Orthographe',conjug:'Conjugaison',gram:'Grammaire',vocab:'Vocabulaire'};
+  const l=['CP','CE1','CE2','CM1','CM2'];
+  return n[selOp]+' · '+l[selLvl[selOp]];
+}
+
+// ===================================================
+// CLAVIERS (4 boutons ABCD)
+// ===================================================
+function buildKbds(){
+  PLAYERS.forEach(p=>{
+    const g=document.getElementById(`g-${p}`);
+    g.innerHTML='';
+    g.style.gridTemplateColumns='1fr 1fr';
+  });
+}
+
+function setChoices(q){
+  PLAYERS.forEach(p=>{
+    const g=document.getElementById(`g-${p}`);
+    g.innerHTML='';
+    curAnswered[p]=false;
+    q.choices.forEach((ch,i)=>{
+      const btn=document.createElement('button');
+      btn.className='kb-btn';
+      btn.textContent=['A','B','C','D'][i]+' '+ch;
+      btn.dataset.val=ch;
+      btn.addEventListener('pointerdown',e=>{e.preventDefault();pressChoice(p,ch);},{passive:false});
+      g.appendChild(btn);
+    });
+  });
+}
+
+function pressChoice(p,val){
+  if(!running||curAnswered[p])return;
+  curAnswered[p]=true;
+  const team=p[0];
+  const btns=document.querySelectorAll(`#g-${p} .kb-btn`);
+  if(val===curQ.r){
+    // Bonne réponse
+    btns.forEach(b=>{ if(b.dataset.val===val) b.classList.add('ok-flash'); });
+    ppts[p]++; document.getElementById(`p-${p}`).textContent=ppts[p];
+    scores[team]++; redraw();
+    if(checkWin())return;
+  } else {
+    // Mauvaise réponse : flash rouge
+    btns.forEach(b=>{ if(b.dataset.val===val) b.classList.add('ko-flash'); });
+    setTimeout(()=>btns.forEach(b=>b.classList.remove('ko-flash')),400);
+  }
+  // Après chaque réponse, vérifier si on passe à la suivante
+  scheduleNext();
+}
+
+let nextTimer=null;
+function scheduleNext(){
+  if(nextTimer)clearTimeout(nextTimer);
+  const allAnswered=PLAYERS.every(p=>curAnswered[p]);
+  if(allAnswered){
+    // Tout le monde a répondu → révèle la bonne réponse 400ms puis question suivante
+    PLAYERS.forEach(p=>{
+      document.querySelectorAll(`#g-${p} .kb-btn`).forEach(b=>{
+        if(b.dataset.val===curQ.r) b.classList.add('ok-flash');
+      });
+    });
+    nextTimer=setTimeout(newQuestion,700);
+  } else {
+    // Pas encore tout le monde → attendre 3s max puis passer
+    nextTimer=setTimeout(()=>{
+      PLAYERS.forEach(p=>{
+        document.querySelectorAll(`#g-${p} .kb-btn`).forEach(b=>{
+          if(b.dataset.val===curQ.r) b.classList.add('ok-flash');
+        });
+      });
+      setTimeout(newQuestion,600);
+    },3000);
+  }
+}
+
+function newQuestion(){
+  if(!running)return;
+  if(nextTimer)clearTimeout(nextTimer);
+  nextTimer=null;
+  curQ=genQ();
+  document.getElementById('q-text').textContent=curQ.txt;
+  document.getElementById('q-label').textContent=curQ.label;
+  setChoices(curQ);
+}
+
+// ===================================================
+// AFFICHAGE CORDE
+// ===================================================
+function redraw(){
+  document.getElementById('sc-b').textContent=scores.b;
+  document.getElementById('sc-r').textContent=scores.r;
+
+  const diff=scores.b-scores.r;
+  const raw=50-(diff/target)*40;
+  const pct=Math.max(6,Math.min(94,raw));
+
+  document.getElementById('pr-bar').style.right=(100-pct)+'%';
+  document.getElementById('pb-bar').style.left=pct+'%';
+
+  const W=1000,H=300,y=H*0.52,sag=22,x=W*pct/100;
+  const d1=`M 20,${y} Q ${x/2},${y+sag} ${x},${y} Q ${(x+W)/2},${y-sag} ${W-20},${y}`;
+  const d2=`M 20,${y+5} Q ${x/2},${y+sag+5} ${x},${y+5} Q ${(x+W)/2},${y-sag+5} ${W-20},${y+5}`;
+  document.getElementById('rp1').setAttribute('d',d1);
+  document.getElementById('rp2').setAttribute('d',d2);
+  document.getElementById('fg').setAttribute('transform',`translate(${x},${y})`);
+
+  const shift=-(diff/target)*70;
+  document.getElementById('pb').style.transform=`translateX(${shift}px)`;
+  document.getElementById('pr').style.transform=`translateX(${shift}px)`;
+}
+
+function checkWin(){
+  const diff=scores.b-scores.r;
+  if(Math.abs(diff)>=target){
+    running=false;
+    if(nextTimer)clearTimeout(nextTimer);
+    setTimeout(()=>showWin(diff>0?'b':'r'),400);
+    return true;
+  }
+  return false;
+}
+
+// ===================================================
+// NAVIGATION
+// ===================================================
+function startGame(){
+  target=parseInt(document.getElementById('rng').value);
+  lastCfg={op:selOp,lvl:selLvl[selOp],target};
+  scores={b:0,r:0}; ppts={b1:0,b2:0,r1:0,r2:0};
+  usedIdx=[]; running=true;
+  if(nextTimer)clearTimeout(nextTimer);
+
+  show('game');
+  buildKbds();
+  PLAYERS.forEach(p=>document.getElementById(`p-${p}`).textContent=0);
+  document.getElementById('top-info').textContent=opLabel();
+  redraw();
+  newQuestion();
+}
+
+function replayGame(){
+  if(lastCfg){selOp=lastCfg.op;selLvl[selOp]=lastCfg.lvl;document.getElementById('rng').value=lastCfg.target;document.getElementById('rv').textContent=lastCfg.target;}
+  startGame();
+}
+
+function goConfig(){running=false;if(nextTimer)clearTimeout(nextTimer);show('cfg');}
+
+function showWin(team){
+  show('win');
+  const isB=team==='b';
+  document.getElementById('wm').textContent=(isB?'🔵 ÉQUIPE BLEUE':'🔴 ÉQUIPE ROUGE')+' GAGNE !';
+  document.getElementById('wm').style.color=isB?'#a8d4ff':'#ffaaaa';
+  document.getElementById('wd').textContent=`${target} point${target>1?'s':''} d'écart – Bravo !`;
+  document.getElementById('ws-b').textContent=scores.b;
+  document.getElementById('ws-r').textContent=scores.r;
+  confetti(team);
+}
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('on');s.style.display='none';});
+  const s=document.getElementById(id); s.style.display='flex'; s.classList.add('on');
+}
+
+function confetti(t){
+  const c=t==='b'?['#2355b0','#74b9ff','#ffd60a','#a29bfe','#fff']:['#b02323','#ff6b6b','#ffd60a','#ff9f43','#fff'];
+  for(let i=0;i<72;i++){
+    const el=document.createElement('div'); el.className='cft';
+    el.style.cssText=`left:${Math.random()*100}%;top:-20px;background:${c[Math.floor(Math.random()*c.length)]};width:${7+Math.random()*7}px;height:${7+Math.random()*7}px;animation-duration:${1.4+Math.random()*1.4}s;animation-delay:${Math.random()*1.4}s;border-radius:${Math.random()>.5?'50%':'3px'}`;
+    document.body.appendChild(el); setTimeout(()=>el.remove(),3600);
+  }
+}
+
+// Init
+document.addEventListener('DOMContentLoaded',()=>{
+  show('cfg');
+  const W=1000,H=300,y=H*0.52;
+  document.getElementById('rp1').setAttribute('d',`M 20,${y} Q 250,${y+22} 500,${y} Q 750,${y-22} 980,${y}`);
+  document.getElementById('rp2').setAttribute('d',`M 20,${y+5} Q 250,${y+27} 500,${y+5} Q 750,${y-17} 980,${y+5}`);
+});
+</script>
+</body>
+</html>
