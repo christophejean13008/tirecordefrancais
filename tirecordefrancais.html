@@ -453,6 +453,8 @@ body { background:linear-gradient(160deg,#5a9e6e 0%,#3a6147 100%); }
     <!-- rempli par JS -->
   </div>
 
+  <div id="t-count" style="color:rgba(255,255,255,.85);font-weight:800;font-size:.9rem;text-align:center;flex-shrink:0">Coche une ou plusieurs compétences</div>
+
   <div class="t-pts-row">
     <label>🏆 Points d'écart</label>
     <input type="range" id="t-rng" min="3" max="20" value="7"
@@ -1163,12 +1165,6 @@ function opLabel(){
   return n[selOp]+' · '+l[selLvl[selOp]];
 }
 
-function teacherLabel(){
-  const n={ortho:'Orthographe',conjug:'Conjugaison',gram:'Grammaire',vocab:'Vocabulaire'};
-  const l=['CP','CE1','CE2','CM1','CM2'];
-  const from = teacherLvl===0 ? 'CP' : 'CP→'+l[teacherLvl];
-  return '👩‍🏫 '+n[teacherOp]+' · '+from;
-}
 
 // ===================================================
 // CLAVIERS (4 boutons ABCD)
@@ -1333,7 +1329,7 @@ function startGame(){
   target=parseInt(document.getElementById('rng').value);
   lastCfg={op:selOp,lvl:selLvl[selOp],target};
   scores={b:0,r:0}; ppts={b1:0,b2:0,r1:0,r2:0};
-  teacherPool=[]; // reset pool enseignant en mode normal
+  teacherPool=[]; lastTeacher=null; // reset pool enseignant en mode normal
   usedIdx=[]; running=true; pauseActive=false;
   if(nextTimer)clearTimeout(nextTimer);
   document.querySelectorAll('.kb-btn').forEach(b=>b.style.pointerEvents='');
@@ -1348,6 +1344,11 @@ function startGame(){
 }
 
 function replayGame(){
+  if(lastTeacher){
+    teacherLvl=lastTeacher.lvl; teacherSel=new Set(lastTeacher.sel);
+    document.getElementById('t-rng').value=lastTeacher.target;
+    startTeacherGame(); return;
+  }
   if(lastCfg){selOp=lastCfg.op;selLvl[selOp]=lastCfg.lvl;document.getElementById('rng').value=lastCfg.target;document.getElementById('rv').textContent=lastCfg.target;}
   startGame();
 }
@@ -1415,87 +1416,102 @@ const T_DOMAINS = [
   ]},
 ];
 
-let teacherLvl = 0; // index 0–4 = CP–CM2
-let teacherOp  = null; // 'ortho'|'conjug'|'gram'|'vocab'
+let teacherLvl = 0;            // classe choisie (0=CP … 4=CM2)
+let teacherSel = new Set();    // compétences cochées : "op:lvl"
+const LVL_NAMES = ['CP','CE1','CE2','CM1','CM2'];
 
 function pickTeacherClass(btn){
   document.querySelectorAll('.t-cls-btn').forEach(b=>b.classList.remove('sel'));
   btn.classList.add('sel');
   teacherLvl = parseInt(btn.dataset.cls);
-  teacherOp  = null;
+  teacherSel = new Set(); // nouvelle classe → on repart de zéro
   renderTeacherDomains();
 }
 
 function renderTeacherDomains(){
   const wrap = document.getElementById('t-domains');
-  const lvlNames = ['CP','CE1','CE2','CM1','CM2'];
   let html = '';
   T_DOMAINS.forEach(d=>{
-    // Affiche toutes les compétences de CP jusqu'au niveau choisi
-    let compButtons = '';
+    let btns = '';
     for(let lvl=0; lvl<=teacherLvl; lvl++){
-      const label = lvlNames[lvl];
-      compButtons += `<button class="t-comp-btn" data-op="${d.key}" style="opacity:${0.5+lvl*0.12}">${d.comps[lvl][0]}</button>`;
+      const k = d.key+':'+lvl;
+      btns += `<button class="t-comp-btn${teacherSel.has(k)?' sel':''}" onclick="toggleTeacherComp('${d.key}',${lvl})">${d.comps[lvl][0]}</button>`;
     }
-    const totalQ = (teacherLvl+1)*20;
-    html += `<div class="t-domain-card" id="tcard-${d.key}" onclick="pickTeacherDomain('${d.key}')">
-      <div class="t-domain-title">${d.icon} ${d.label} <span style="font-size:.7rem;color:rgba(255,255,255,.5);font-family:'Nunito',sans-serif;font-weight:800">${totalQ} questions</span></div>
-      <div class="t-comp-list">${compButtons}</div>
+    html += `<div class="t-domain-card">
+      <div class="t-domain-title" style="cursor:pointer" onclick="toggleTeacherDomain('${d.key}')">${d.icon} ${d.label}
+        <span style="font-size:.7rem;color:rgba(255,255,255,.5);font-family:'Nunito',sans-serif;font-weight:800">tout cocher / décocher</span></div>
+      <div class="t-comp-list">${btns}</div>
     </div>`;
   });
   wrap.innerHTML = html;
-  if(teacherOp){
-    const card = document.getElementById('tcard-'+teacherOp);
-    if(card) card.classList.add('sel');
-  }
+  updateTeacherCount();
 }
 
-function pickTeacherDomain(opKey){
-  teacherOp = opKey;
-  // Highlight uniquement la carte sélectionnée
-  document.querySelectorAll('.t-domain-card').forEach(c=>c.classList.remove('sel'));
-  document.querySelectorAll('.t-comp-btn').forEach(b=>b.classList.remove('sel'));
-  const card = document.getElementById('tcard-'+opKey);
-  if(card){
-    card.classList.add('sel');
-    card.querySelector('.t-comp-btn').classList.add('sel');
-  }
+function toggleTeacherComp(op, lvl){
+  const k = op+':'+lvl;
+  if(teacherSel.has(k)) teacherSel.delete(k); else teacherSel.add(k);
+  renderTeacherDomains();
+}
+
+function toggleTeacherDomain(op){
+  const keys = [];
+  for(let l=0; l<=teacherLvl; l++) keys.push(op+':'+l);
+  const allOn = keys.every(k=>teacherSel.has(k));
+  keys.forEach(k=> allOn ? teacherSel.delete(k) : teacherSel.add(k));
+  renderTeacherDomains();
+}
+
+function updateTeacherCount(){
+  const n = [...teacherSel].reduce((s,k)=>{
+    const [op,l]=k.split(':'); return s+QUESTIONS[op][+l].length;
+  },0);
+  const el = document.getElementById('t-count');
+  if(el) el.textContent = teacherSel.size
+    ? `${teacherSel.size} compétence(s) · ${n} questions`
+    : 'Coche une ou plusieurs compétences';
+}
+
+function teacherLabel(){
+  return '👩‍🏫 Sélection · '+LVL_NAMES[teacherLvl];
 }
 
 function startTeacherGame(){
-  if(teacherOp === null){
-    teacherOp = T_DOMAINS[0].key;
+  if(teacherSel.size===0){
+    const el=document.getElementById('t-count');
+    if(el){ el.textContent='⚠️ Coche au moins une compétence !'; el.style.color='#f5c842'; }
+    return;
   }
-  selOp = teacherOp;
-  selLvl[selOp] = teacherLvl;
+  // Pool = questions des compétences cochées
+  teacherPool = [];
+  teacherSel.forEach(k=>{
+    const [op,l]=k.split(':');
+    teacherPool = teacherPool.concat(QUESTIONS[op][+l]);
+  });
+  teacherPool.sort(()=>Math.random()-0.5);
+
   target = parseInt(document.getElementById('t-rng').value);
+  lastTeacher = {sel:new Set(teacherSel), lvl:teacherLvl, target};
+  lastCfg = null;
 
-  // Construit le pool fusionné CP → classe choisie
-  teacherPool = buildTeacherPool(teacherOp, teacherLvl);
-
-  lastCfg = {op:selOp, lvl:teacherLvl, target};
   scores={b:0,r:0}; ppts={b1:0,b2:0,r1:0,r2:0};
   usedIdx=[]; running=true; pauseActive=false;
   if(nextTimer)clearTimeout(nextTimer);
   document.querySelectorAll('.kb-btn').forEach(b=>b.style.pointerEvents='');
   document.getElementById('question-box').classList.remove('reveal-ok');
 
-  const lvlNames=['CP','CE1','CE2','CM1','CM2'];
-  const opNames={ortho:'Orthographe',conjug:'Conjugaison',gram:'Grammaire',vocab:'Vocabulaire'};
   show('game');
   buildKbds();
   PLAYERS.forEach(p=>document.getElementById('p-'+p).textContent=0);
-  document.getElementById('top-info').textContent =
-    `👩‍🏫 ${lvlNames[teacherLvl]} · ${opNames[selOp]}`;
+  document.getElementById('top-info').textContent = teacherLabel()+' · '+teacherSel.size+' compétence(s)';
   redraw();
   newQuestion();
 }
+let lastTeacher = null;
 
 // Init
 document.addEventListener('DOMContentLoaded',()=>{
   show('cfg');
   renderTeacherDomains();
-  renderAiCompetences();
   const W=1000,H=300,y=H*0.52;
   document.getElementById('rp1').setAttribute('d',`M 20,${y} Q 250,${y+22} 500,${y} Q 750,${y-22} 980,${y}`);
   document.getElementById('rp2').setAttribute('d',`M 20,${y+5} Q 250,${y+27} 500,${y+5} Q 750,${y-17} 980,${y+5}`);
